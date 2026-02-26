@@ -1,12 +1,12 @@
 import random
-
+import time
 def get_simulated_ble_data():
     # TASK #19
     # #defined the MAC(ID) and RSSI(DISTANCE) to be pulled from scan.
-    # #LATER: 'mac_addr' will be 'device.rssi' when I get the rasbery pi
+    # when we have the rasbery pi we need to change 'mac_addr' to be 'device.rssi' 
     mac_addr = "AA:BB:CC:DD:EE:FF"
 
-    # #LATER: 'signal_strength' will be 'device.rssi' when I get the rasbery pi.
+    # when we have the rasbery pi we need to change 'signal_strength' to be 'device.rssi' 
     signal_strength = random.randint(-80, -40)
 
     # #Task #29
@@ -20,5 +20,13 @@ def get_simulated_ble_data():
     return {"mac": mac_addr, "rssi": signal_strength, "name": clean_name}
 
 if __name__ == "__main__":
-    # Test
-    print("Tuesday Testing Output:", get_simulated_ble_data())
+    print("--- Care Home BLE Monitoring System: ACTIVE ---")
+    try:
+        while True:
+            data = get_simulated_ble_data()
+            #Task #21: Outputing
+            print(f"Tracking: {data['name']} | Signal: {data['rssi']}dBm | ID: {data['mac']}")
+            # Task #22: Continuous Loop (2s delay)
+            time.sleep(2)
+    except KeyboardInterrupt:
+        print("\nMonitoring System Stopped Safely.")
