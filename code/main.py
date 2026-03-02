@@ -1,32 +1,78 @@
-import random
-import time
-def get_simulated_ble_data():
-    # TASK #19
-    # #defined the MAC(ID) and RSSI(DISTANCE) to be pulled from scan.
-    # when we have the rasbery pi we need to change 'mac_addr' to be 'device.rssi' 
-    mac_addr = "AA:BB:CC:DD:EE:FF"
+import asyncio
+import sqlite3
+import os
+from datetime import datetime
+from pathlib import Path
 
-    # when we have the rasbery pi we need to change 'signal_strength' to be 'device.rssi' 
-    signal_strength = random.randint(-80, -40)
+from bleak import BleakScanner
+from matcher import match_device   # or: from .matcher import match_device (see note below)
 
-    # #Task #29
-    raw_name = random.choice(["Resident_Wristband_01", None])
-    # #Safety Guard: If hardware finds no nmae, use "Unknown Resident"
-    if raw_name is None:
-        clean_name = "Unknown Resident"
-    else:
-        clean_name = raw_name
+# Path to the database file
+DB_PATH = Path(__file__).resolve().parent.parent / "backend" / "db.sqlite3"
 
-    return {"mac": mac_addr, "rssi": signal_strength, "name": clean_name}
 
-if __name__ == "__main__":
+
+def save_to_database(mac, rssi):
+    """Saves scan data to the DetectionEvent table"""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        
+        # 1. Find the wristband ID that matches the MAC address
+        cursor.execute("SELECT id FROM tracker_wristband WHERE mac_address = ?", (mac,))
+        result = cursor.fetchone()
+        
+        if result:
+            wristband_id = result[0]
+            # 2. Insert into the DetectionEvent table
+            cursor.execute("""
+                INSERT INTO tracker_detectionevent (location, rssi, timestamp, wristband_id)
+                VALUES (?, ?, ?, ?)
+            """, ("Raspberry Pi 01", rssi, datetime.now(), wristband_id))
+            conn.commit()
+            print(f"--- Database: Event logged for {mac} ---")
+        else:
+            # Alert for when the Hardware team hasn't registered a wristband yet
+            print(f"--- Database Alert: MAC {mac} not found in 'Wristband' table ---")
+            
+        conn.close()
+    except Exception as e:
+        print(f"--- Database Error: {e} ---")
+
+
+async def main():
     print("--- Care Home BLE Monitoring System: ACTIVE ---")
+
+    db_available = DB_PATH.exists()
+    if not db_available:
+        print(f"NOTE: Database not found at {DB_PATH}. Running without DB logging for now.")
+
+    def callback(device, adv_data):                          #def callback(device, adv_data):
+        mac = device.address                                 #print(f"Seen device: {device.address} | {adv_data.rssi} dBm")
+        rssi = adv_data.rssi                                    #run this to test call back for all bluetooth devices not jsut ones found in whitelist
+        name = adv_data.local_name or device.name
+
+        match = match_device(mac, name)
+        if not match:
+            return
+
+        resident_id = match.get("id", name or "Unknown Resident")
+        print(f"Tracking: {resident_id} | Signal: {rssi}dBm | ID: {mac}")
+
+        if db_available:
+            save_to_database(mac, rssi)
+
+    scanner = BleakScanner(detection_callback=callback)
+
+    await scanner.start()
     try:
         while True:
-            data = get_simulated_ble_data()
-            #Task #21: Outputing
-            print(f"Tracking: {data['name']} | Signal: {data['rssi']}dBm | ID: {data['mac']}")
-            # Task #22: Continuous Loop (2s delay)
-            time.sleep(2)
+            await asyncio.sleep(2)
     except KeyboardInterrupt:
         print("\nMonitoring System Stopped Safely.")
+    finally:
+        await scanner.stop()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
