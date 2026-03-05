@@ -31,15 +31,15 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
+    "jazzmin",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    "tracker", 
+    "tracker",
 ]
-
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -116,3 +116,45 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = "static/"
+
+
+JAZZMIN_SETTINGS = {
+    "site_title": "Care Home Tracker Admin",
+    "site_header": "Care Home Wristband Tracking",
+    "site_brand": "Wristband Tracker",
+    "welcome_sign": "Welcome to the care home monitoring dashboard",
+    "copyright": "Team Project",
+    "search_model": ["auth.User", "tracker.ServiceUser", "tracker.WristbandDevice", "tracker.LocationLog"],
+    "topmenu_links": [
+        {"name": "Home", "url": "admin:index", "permissions": ["auth.view_user"]},
+        {"model": "tracker.ServiceUser"},
+        {"model": "tracker.WristbandDevice"},
+        {"model": "tracker.LocationLog"},
+    ],
+    "icons": {
+        "auth": "fas fa-users-cog",
+        "auth.user": "fas fa-user",
+        "tracker.ServiceUser": "fas fa-hospital-user",
+        "tracker.WristbandDevice": "fas fa-wristband",
+        "tracker.LocationLog": "fas fa-map-marker-alt",
+    },
+    "changeform_format": "horizontal_tabs",
+    "show_ui_builder": True,
+}
+
+JAZZMIN_UI_TWEAKS = {
+    "theme": "flatly",
+    "dark_mode_theme": "darkly",
+    "navbar": "navbar-primary navbar-dark",
+    "accent": "accent-info",
+    "navbar_fixed": True,
+    "footer_fixed": False,
+    "sidebar_fixed": True,
+    "sidebar": "sidebar-dark-info",
+    "sidebar_nav_small_text": False,
+    "sidebar_disable_expand": False,
+    "sidebar_nav_child_indent": True,
+    "sidebar_nav_compact_style": True,
+}
+
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
