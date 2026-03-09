@@ -17,12 +17,9 @@ Including another URLconf
 
 from django.contrib import admin
 from django.urls import path
-
-urlpatterns = [
-    path("admin/", admin.site.urls),
-]
 from tracker.views import receive_detection
 
 urlpatterns = [
+    path("admin/", admin.site.urls),
     path("api/detection/", receive_detection),
 ]
