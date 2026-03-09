@@ -21,3 +21,8 @@ from django.urls import path
 urlpatterns = [
     path("admin/", admin.site.urls),
 ]
+from tracker.views import receive_detection
+
+urlpatterns = [
+    path("api/detection/", receive_detection),
+]
