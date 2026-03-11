@@ -1,12 +1,12 @@
 import asyncio
 import sqlite3
-import os         # RE-ADDED: For system paths
-import requests   # RE-ADDED: Required for Task #67 API calls
+import os         
+import requests   
 from datetime import datetime
 from pathlib import Path
 from bleak import BleakScanner
 
-# Path to your teammate's database
+# Path to your database
 DB_PATH = Path(__file__).resolve().parent.parent / "backend" / "db.sqlite3"
 
 # Task #70: API Endpoint
@@ -54,7 +54,7 @@ async def simulated_rfid_listener():
         save_to_database("999888", 100, is_rfid=True)
 
 async def main():
-    print("--- Sprint 3 ACTIVE: BLE + RFID Simulation ---")
+    print("--- BLE + RFID Simulation ---")
     
     def callback(device, adv_data):
         save_to_database(device.address, adv_data.rssi)
