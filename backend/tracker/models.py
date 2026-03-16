@@ -83,6 +83,7 @@ class WristbandDevice(models.Model):
         related_name="wristband_device",
     )
     bluetooth_mac_address = models.CharField(max_length=17, unique=True)
+    rfid_uid = models.CharField(max_length=64, unique=True, null=True, blank=True)
     wristband_serial_number = models.CharField(max_length=100, unique=True)
     battery_level = models.PositiveSmallIntegerField(
         validators=[MinValueValidator(0), MaxValueValidator(100)],
