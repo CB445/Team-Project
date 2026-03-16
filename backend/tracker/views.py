@@ -19,6 +19,11 @@ def receive_detection(request):
         location = data.get("location")
         detector_id = data.get("detector_id")
 
+        #validate incoming data 
+        if not mac or rssi is None or not location or not detector_id:
+            return JsonResponse({"error": "Missing required fields"}, status=400) 
+
+
         try:
             wristband = WristbandDevice.objects.get(bluetooth_mac_address=mac)
 
