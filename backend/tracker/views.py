@@ -22,6 +22,10 @@ def receive_detection(request):
         #validate incoming data 
         if not mac or rssi is None or not location or not detector_id:
             return JsonResponse({"error": "Missing required fields"}, status=400) 
+        
+        # signal filtering
+        if rssi is not None and rssi < -95:
+            return JsonResponse({"status": "signal too weak"}, status=200)
 
 
         try:
