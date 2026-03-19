@@ -9,19 +9,13 @@ from bleak import BleakScanner
 # Path to your database
 DB_PATH = Path(__file__).resolve().parent.parent / "backend" / "db.sqlite3"
 
-# Task #70: API Endpoint
-API_URL = "http://127.0.0.1:8000/api/detections/"
-
+# Task #85: Log Validation Logic
 def save_to_database(identifier, rssi, is_rfid=False):
-    """
-    Task D: Log Validation
-    Ensuring residents are correctly identified in the database.
-    """
     try:
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
         
-        # Choosing the right column based on sensor type
+        # Task #83: Using the new rfid_uid column for database lookups
         query_col = "bluetooth_mac_address" if not is_rfid else "rfid_uid"
         sensor_type = "RFID" if is_rfid else "BLE"
         
@@ -34,20 +28,19 @@ def save_to_database(identifier, rssi, is_rfid=False):
                 INSERT INTO tracker_locationlog 
                 (detector_location, signal_strength, timestamp, wristband_device_id, service_user_id, movement_detected)
                 VALUES (?, ?, ?, ?, ?, ?)
-            """, ("Scanner 01", rssi, datetime.now(), device_id, service_user_id, is_rfid))
+            """, ("Scanner 01", rssi, datetime.now().strftime('%Y-%m-%d %H:%M:%S'), device_id, service_user_id, 0))
             conn.commit()
-            # UPDATED: More info in the success message
             print(f"--- SUCCESS: Resident {service_user_id} Identified | Type: {sensor_type} | ID: {identifier} | RSSI: {rssi} ---")
         else:
-            # UPDATED: More info in the alert message
+            # Task #85: Validation alert for unregistered devices
             print(f"--- DATABASE ALERT: Unregistered Device Detected | Type: {sensor_type} | MAC/UID: {identifier} | RSSI: {rssi} ---")
             
         conn.close()
     except Exception as e:
         print(f"--- Database Error: {e} ---")
 
+# Task #82: Create RFID Simulation/Mocking logic
 async def simulated_rfid_listener():
-    """Mocking hardware for Sprint 3 points"""
     while True:
         await asyncio.sleep(10) 
         print("\n[SIMULATION] Scanning RFID Tag...")
@@ -62,10 +55,17 @@ async def main():
     scanner = BleakScanner(detection_callback=callback)
     await scanner.start()
     
-    await asyncio.gather(
-        simulated_rfid_listener(),
-        asyncio.sleep(3600) 
-    )
+    # Task #84: Integrate RFID simulation into the main BLE scanner loop using asyncio.gather
+    try:
+        await asyncio.gather(
+            simulated_rfid_listener(),
+            asyncio.sleep(3600) 
+        )
+    except asyncio.CancelledError:
+        await scanner.stop()
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("\n--- Scanner Stopped Safely ---")
