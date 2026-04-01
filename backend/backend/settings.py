@@ -143,7 +143,7 @@ JAZZMIN_SETTINGS = {
 }
 
 JAZZMIN_UI_TWEAKS = {
-    "theme": "flatly",
+    "theme": "litera",
     "dark_mode_theme": "darkly",
     "navbar": "navbar-primary navbar-dark",
     "accent": "accent-info",
