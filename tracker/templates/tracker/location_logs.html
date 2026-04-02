@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Location Logs</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: #f4f6f9;
+        }
+
+        .panel-card {
+            border: 0;
+            border-radius: 1rem;
+            box-shadow: 0 10px 22px rgba(2, 8, 23, 0.08);
+        }
+
+        .recent-row {
+            background-color: #fff9db;
+        }
+
+        .meta-pill {
+            font-size: 0.8rem;
+            border-radius: 999px;
+            padding: 0.2rem 0.6rem;
+        }
+
+        .filters-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 0.8rem;
+        }
+
+        .filter-label {
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: #475569;
+            margin-bottom: 0.25rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container py-4 py-lg-5">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h1 class="h3 mb-1">Location Logs</h1>
+                <p class="text-muted mb-0">Live movement stream with latest known location per resident</p>
+            </div>
+            <span class="badge text-bg-success">Live updates every 5s</span>
+        </div>
+
+        <div class="alert alert-info d-flex justify-content-between align-items-center mb-4" role="alert">
+            <span class="fw-semibold">Live Time</span>
+            <span id="live-clock" class="font-monospace"></span>
+        </div>
+
+        <div class="card panel-card mb-4">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h2 class="h6 mb-0">Filters</h2>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="clear-filters">Clear</button>
+                </div>
+                <div class="filters-grid">
+                    <div>
+                        <label class="filter-label" for="filter-user">Service User</label>
+                        <select id="filter-user" class="form-select form-select-sm">
+                            <option value="">All users</option>
+                            {% for user in service_users %}
+                            <option value="{{ user.pk }}" {% if selected_user == user.pk|stringformat:"s" %}selected{% endif %}>
+                                {{ user.first_name }} {{ user.last_name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="filter-label" for="filter-location">Location</label>
+                        <select id="filter-location" class="form-select form-select-sm">
+                            <option value="">All locations</option>
+                            {% for location in locations %}
+                            <option value="{{ location }}" {% if selected_location == location %}selected{% endif %}>{{ location }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="filter-label" for="filter-movement">Movement State</label>
+                        <select id="filter-movement" class="form-select form-select-sm">
+                            <option value="" {% if not selected_movement %}selected{% endif %}>All states</option>
+                            <option value="moving" {% if selected_movement == "moving" %}selected{% endif %}>Moving</option>
+                            <option value="stable" {% if selected_movement == "stable" %}selected{% endif %}>Stable</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card panel-card mb-4">
+            <div class="card-body">
+                <h2 class="h5 mb-3">Last Known Locations</h2>
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>User</th>
+                                <th>Last Location</th>
+                                <th>Time</th>
+                            </tr>
+                        </thead>
+                        <tbody id="last-known-body">
+                            {% for item in last_known_locations %}
+                            <tr>
+                                <td>{{ item.first_name }} {{ item.last_name }}</td>
+                                <td>{{ item.last_location }}</td>
+                                <td>{{ item.last_seen|date:"h:i A" }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="3" class="text-center text-muted">No location history available yet.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="card panel-card">
+            <div class="card-body">
+                <h2 class="h5 mb-3">Live Location Activity</h2>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>Service User</th>
+                                <th>Location</th>
+                                <th>Movement</th>
+                                <th>Wristband</th>
+                                <th>Timestamp</th>
+                            </tr>
+                        </thead>
+                        <tbody id="logs-body">
+                            {% for log in logs %}
+                            <tr>
+                                <td>{{ log.service_user.first_name }} {{ log.service_user.last_name }}</td>
+                                <td>{{ log.detector_location }}</td>
+                                <td>
+                                    {% if log.movement_detected %}
+                                    <span class="meta-pill bg-warning-subtle text-warning-emphasis">Moving</span>
+                                    {% else %}
+                                    <span class="meta-pill bg-secondary-subtle text-secondary-emphasis">Stable</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ log.wristband_device.device_id }}</td>
+                                <td>{{ log.timestamp|date:"Y-m-d H:i:s" }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" class="text-center text-muted">No location logs available yet.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const filterUser = document.getElementById('filter-user');
+        const filterLocation = document.getElementById('filter-location');
+        const filterMovement = document.getElementById('filter-movement');
+        const clearFilters = document.getElementById('clear-filters');
+        const liveClock = document.getElementById('live-clock');
+
+        function updateLiveClock() {
+            const now = new Date();
+            const formatted = new Intl.DateTimeFormat('en-GB', {
+                day: '2-digit',
+                month: 'long',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false
+            }).format(now);
+            liveClock.textContent = formatted;
+        }
+
+        function activeFilterParams() {
+            const params = new URLSearchParams();
+            if (filterUser.value) {
+                params.set('user', filterUser.value);
+            }
+            if (filterLocation.value) {
+                params.set('location', filterLocation.value);
+            }
+            if (filterMovement.value) {
+                params.set('movement', filterMovement.value);
+            }
+            return params;
+        }
+
+        function renderLastKnownLocations(data) {
+            const body = document.getElementById('last-known-body');
+            if (!data.length) {
+                body.innerHTML = '<tr><td colspan="3" class="text-center text-muted">No location history available yet.</td></tr>';
+                return;
+            }
+
+            body.innerHTML = data
+                .map(item => `
+                    <tr>
+                        <td>${item.service_user}</td>
+                        <td>${item.location}</td>
+                        <td>${item.time}</td>
+                    </tr>
+                `)
+                .join('');
+        }
+
+        function renderLogs(data) {
+            const body = document.getElementById('logs-body');
+            if (!data.length) {
+                body.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No location logs available yet.</td></tr>';
+                return;
+            }
+
+            body.innerHTML = data
+                .map(log => `
+                    <tr class="${log.is_recent ? 'recent-row' : ''}">
+                        <td>${log.service_user}</td>
+                        <td>${log.location}</td>
+                        <td>${log.movement_detected === 'Yes'
+                            ? '<span class="meta-pill bg-warning-subtle text-warning-emphasis">Moving</span>'
+                            : '<span class="meta-pill bg-secondary-subtle text-secondary-emphasis">Stable</span>'}</td>
+                        <td>${log.device_id}</td>
+                        <td>${log.timestamp}</td>
+                    </tr>
+                `)
+                .join('');
+        }
+
+        async function refreshLocationLogs() {
+            try {
+                const params = activeFilterParams();
+                const endpoint = params.toString()
+                    ? `{% url "tracker:live_location_logs" %}?${params.toString()}`
+                    : '{% url "tracker:live_location_logs" %}';
+
+                const response = await fetch(endpoint, {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+                if (!response.ok) {
+                    return;
+                }
+                const payload = await response.json();
+                renderLastKnownLocations(payload.last_known_locations);
+                renderLogs(payload.logs);
+            } catch (error) {
+                console.error('Live update failed:', error);
+            }
+        }
+
+        [filterUser, filterLocation, filterMovement].forEach(element => {
+            element.addEventListener('change', refreshLocationLogs);
+        });
+
+        clearFilters.addEventListener('click', function () {
+            filterUser.value = '';
+            filterLocation.value = '';
+            filterMovement.value = '';
+            refreshLocationLogs();
+        });
+
+        updateLiveClock();
+        refreshLocationLogs();
+
+        // Keep the page and clock in sync on a predictable 5-minute cadence.
+        setInterval(updateLiveClock, 300000);
+        setInterval(function () {
+            window.location.reload();
+        }, 300000);
+        setInterval(refreshLocationLogs, 5000);
+    </script>
+</body>
+</html>
