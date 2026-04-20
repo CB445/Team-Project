@@ -3,7 +3,8 @@ import sqlite3
 import os         
 import requests   
 import math
-import winsound  # Task #99: physical speaker alerts
+import winsound  
+import socket  
 from datetime import datetime
 from pathlib import Path
 from bleak import BleakScanner
@@ -11,7 +12,10 @@ from bleak import BleakScanner
 # Path to database
 DB_PATH = Path(__file__).resolve().parent.parent / "db.sqlite3"
 
-# Task #92: Location Detection Logic (RSSI to Meters)
+# Automatically detect which Pi/Computer this is
+NODE_NAME = socket.gethostname()
+
+# Location Detection Logic (RSSI to Meters)
 def calculate_meters(rssi):
     if rssi >= 0: return 0.1
     measured_power = -59 
@@ -19,7 +23,7 @@ def calculate_meters(rssi):
     distance = 10**((measured_power - rssi) / (10 * environmental_factor))
     return round(distance, 2)
 
-# Task #99: Speaker Function for Alerts
+# Speaker Function for Alerts
 def trigger_speaker_alert(event_type, distance=0):
     if event_type == "RFID_SUCCESS":
         winsound.Beep(2000, 150) # Short chirp for swipe
@@ -29,10 +33,10 @@ def trigger_speaker_alert(event_type, distance=0):
     elif event_type == "UNREGISTERED":
         winsound.Beep(400, 600) 
 
-# Task #85: Log Validation Logic 
+# Log Validation Logic 
 def save_to_database(identifier, rssi, is_rfid=False):
     try:
-        # Task #115: Database Connection Retries & Timeout for stability
+        # Database Connection Retries & Timeout for stability
         conn = sqlite3.connect(DB_PATH, timeout=10) 
         cursor = conn.cursor()
         
@@ -45,7 +49,8 @@ def save_to_database(identifier, rssi, is_rfid=False):
         
         if result:
             device_id, service_user_id = result
-            location_label = "Scanner 01 (Near)" if dist_m < 4.0 else "Scanner 01 (Away)"
+            # Using the NODE_NAME variable to identify this specific scanner
+            location_label = f"Node: {NODE_NAME} (Near)" if dist_m < 4.0 else f"Node: {NODE_NAME} (Away)"
             
             cursor.execute("""
                 INSERT INTO tracker_locationlog 
@@ -67,7 +72,7 @@ def save_to_database(identifier, rssi, is_rfid=False):
     except Exception as e:
         print(f"--- Database Error: {e} ---")
 
-# Task #82: RFID Simulation/Mocking logic
+# RFID Simulation/Mocking logic
 async def simulated_rfid_listener():
     while True:
         await asyncio.sleep(15) 
@@ -77,7 +82,7 @@ async def simulated_rfid_listener():
 async def main():
     print("--- Smart Wristband Monitoring System: Gateway Node Active ---")
     
-    # Task #114: Status Heartbeat to show the system is active
+    # Status Heartbeat to show the system is active
     async def hardware_heartbeat():
         while True:
             await asyncio.sleep(60)
@@ -92,13 +97,13 @@ async def main():
         await scanner.start()
         ble_active = True
     except:
-        # Task #116: Hardware Failure Audio Alert (Low long tone)
+        # Hardware Failure Audio Alert (Low long tone)
         print("--- Hardware Alert: BLE Adapter Not Found (Simulation Only) ---")
         winsound.Beep(300, 1000) 
         ble_active = False
     
     try:
-        # Task #84 & #114: Integrate heartbeat and simulation into main loop
+        # Integrate heartbeat and simulation into main loop
         await asyncio.gather(
             simulated_rfid_listener(),
             hardware_heartbeat(),
