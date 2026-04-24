@@ -15,6 +15,10 @@ DB_PATH = Path(__file__).resolve().parent.parent / "db.sqlite3"
 # Automatically detect which Pi/Computer this is
 NODE_NAME = socket.gethostname()
 
+# Memory for the script
+STABLE_DETECTIONS = {}
+ALREADY_BEEPED = set() # Remembers who we've already chirped for
+
 # Location Detection Logic (RSSI to Meters)
 def calculate_meters(rssi):
     if rssi >= 0: return 0.1
@@ -26,21 +30,28 @@ def calculate_meters(rssi):
 # Speaker Function for Alerts
 def trigger_speaker_alert(event_type, distance=0):
     if event_type == "RFID_SUCCESS":
-        winsound.Beep(2000, 150) # Short chirp for swipe
+        winsound.Beep(2000, 150) # Short chirp
     elif event_type == "BLE_WARNING":
         for _ in range(3):
-            winsound.Beep(1200, 250)
+            winsound.Beep(1200, 250) # Warning beeps
     elif event_type == "UNREGISTERED":
         winsound.Beep(400, 600) 
 
 # Log Validation Logic 
 def save_to_database(identifier, rssi, is_rfid=False):
     try:
-        # Database Connection Retries & Timeout for stability
         conn = sqlite3.connect(DB_PATH, timeout=10) 
         cursor = conn.cursor()
         
         dist_m = 0.0 if is_rfid else calculate_meters(rssi)
+
+        # Extreme Distance Glitch Filter
+        if not is_rfid:
+            STABLE_DETECTIONS[identifier] = STABLE_DETECTIONS.get(identifier, 0) + 1
+            if dist_m > 30.0 and STABLE_DETECTIONS[identifier] < 2:
+                print(f"--- IGNORED: Weak single-ping at {dist_m}m ---")
+                return
+
         query_col = "bluetooth_mac_address" if not is_rfid else "rfid_uid"
         sensor_type = "RFID" if is_rfid else "BLE"
         
@@ -49,7 +60,6 @@ def save_to_database(identifier, rssi, is_rfid=False):
         
         if result:
             device_id, service_user_id = result
-            # Using the NODE_NAME variable to identify this specific scanner
             location_label = f"Node: {NODE_NAME} (Near)" if dist_m < 4.0 else f"Node: {NODE_NAME} (Away)"
             
             cursor.execute("""
@@ -61,10 +71,20 @@ def save_to_database(identifier, rssi, is_rfid=False):
             
             print(f"--- SUCCESS: Resident {service_user_id} Identified | Dist: {dist_m}m | RSSI: {rssi} ---")
             
+            # --- PROFESSIONAL AUDIO LOGIC ---
             if is_rfid:
                 trigger_speaker_alert("RFID_SUCCESS")
-            elif dist_m > 4.0:
-                trigger_speaker_alert("BLE_WARNING", dist_m)
+            
+            # FIRST CONTACT BEEP: Chirp once when first discovered
+            elif identifier not in ALREADY_BEEPED:
+                trigger_speaker_alert("RFID_SUCCESS") 
+                ALREADY_BEEPED.add(identifier)
+                print(f"--- ALERT: First contact with Resident {service_user_id} ---")
+            
+            # DANGER ZONE BEEP: Warning if very close
+            elif dist_m < 1.5:
+                trigger_speaker_alert("BLE_WARNING")
+            
         else:
             print(f"--- UNKNOWN {sensor_type} | ID: {identifier} | Dist: {dist_m}m ---")
             
@@ -74,19 +94,24 @@ def save_to_database(identifier, rssi, is_rfid=False):
 
 # RFID Simulation/Mocking logic
 async def simulated_rfid_listener():
-    while True:
-        await asyncio.sleep(15) 
-        print("\n[SIMULATION] Scanning RFID Tag...")
-        save_to_database("999888", 100, is_rfid=True)
+    try:
+        while True:
+            await asyncio.sleep(15) 
+            print("\n[SIMULATION] Scanning RFID Tag...")
+            save_to_database("999888", 100, is_rfid=True)
+    except asyncio.CancelledError:
+        return
 
 async def main():
     print("--- Smart Wristband Monitoring System: Gateway Node Active ---")
     
-    # Status Heartbeat to show the system is active
     async def hardware_heartbeat():
-        while True:
-            await asyncio.sleep(60)
-            print(f"[{datetime.now().strftime('%H:%M:%S')}] Scanner Status: ONLINE | Monitoring for Wristbands...")
+        try:
+            while True:
+                await asyncio.sleep(60)
+                print(f"[{datetime.now().strftime('%H:%M:%S')}] Scanner Status: ONLINE")
+        except asyncio.CancelledError:
+            return
 
     def callback(device, adv_data):
         save_to_database(device.address, adv_data.rssi)
@@ -95,25 +120,21 @@ async def main():
     
     try:
         await scanner.start()
-        ble_active = True
-    except:
-        # Hardware Failure Audio Alert (Low long tone)
-        print("--- Hardware Alert: BLE Adapter Not Found (Simulation Only) ---")
-        winsound.Beep(300, 1000) 
-        ble_active = False
-    
-    try:
-        # Integrate heartbeat and simulation into main loop
+        print("--- BLE Scanner Started (Press CTRL+C once to stop) ---")
+        
         await asyncio.gather(
             simulated_rfid_listener(),
             hardware_heartbeat(),
-            asyncio.sleep(3600) 
+            asyncio.sleep(36000) 
         )
-    except asyncio.CancelledError:
-        if ble_active: await scanner.stop()
+    except (asyncio.CancelledError, KeyboardInterrupt):
+        print("\n--- Stopping Scanner... ---")
+    finally:
+        await scanner.stop()
+        print("--- Scanner Stopped Safely ---")
 
 if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        print("\n--- Scanner Stopped Safely ---")
+        pass
