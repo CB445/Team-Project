@@ -9,6 +9,13 @@ from datetime import datetime
 from pathlib import Path
 from bleak import BleakScanner
 
+# CHECK FOR REAL HARDWARE (Used to switch between laptop and Pi)
+try:
+    from mfrc522 import SimpleMFRC522
+    HAS_HARDWARE = True
+except ImportError:
+    HAS_HARDWARE = False
+
 # Path to database
 DB_PATH = Path(__file__).resolve().parent.parent / "db.sqlite3"
 
@@ -92,6 +99,15 @@ def save_to_database(identifier, rssi, is_rfid=False):
     except Exception as e:
         print(f"--- Database Error: {e} ---")
 
+# REAL HARDWARE LISTENER (For when on Pi)
+async def real_rfid_listener():
+    reader = SimpleMFRC522()
+    loop = asyncio.get_event_loop()
+    while True:
+        id, text = await loop.run_in_executor(None, reader.read)
+        save_to_database(str(id), 100, is_rfid=True)
+        await asyncio.sleep(2)
+
 # RFID Simulation/Mocking logic
 async def simulated_rfid_listener():
     try:
@@ -118,12 +134,15 @@ async def main():
 
     scanner = BleakScanner(detection_callback=callback)
     
+    # SWITCH: If library found, use real RFID. Otherwise, use simulation.
+    rfid_logic = real_rfid_listener() if HAS_HARDWARE else simulated_rfid_listener()
+
     try:
         await scanner.start()
         print("--- BLE Scanner Started (Press CTRL+C once to stop) ---")
         
         await asyncio.gather(
-            simulated_rfid_listener(),
+            rfid_logic,
             hardware_heartbeat(),
             asyncio.sleep(36000) 
         )

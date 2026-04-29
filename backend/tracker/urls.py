@@ -1,8 +1,8 @@
+from django.contrib import admin
 from django.urls import path
-from .views import service_user_list   
-
-app_name = "tracker"
+from tracker.views import receive_location_data
 
 urlpatterns = [
-    path("users/", service_user_list, name="service_user_list"),
+    path("admin/", admin.site.urls),
+    path("api/location/", receive_location_data, name="receive_location"),
 ]
