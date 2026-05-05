@@ -9,7 +9,7 @@ from datetime import datetime
 from pathlib import Path
 from bleak import BleakScanner
 
-# CHECK FOR REAL HARDWARE (Used to switch between laptop and Pi)
+# hardware check pi to laptop
 try:
     from mfrc522 import SimpleMFRC522
     HAS_HARDWARE = True
@@ -19,12 +19,12 @@ except ImportError:
 # Path to database
 DB_PATH = Path(__file__).resolve().parent.parent / "db.sqlite3"
 
-# Automatically detect which Pi/Computer this is
+# Automatically detect which Pi
 NODE_NAME = socket.gethostname()
 
 # Memory for the script
 STABLE_DETECTIONS = {}
-ALREADY_BEEPED = set() # Remembers who we've already chirped for
+ALREADY_BEEPED = set() # Remembers who already chirped for
 
 # Location Detection Logic (RSSI to Meters)
 def calculate_meters(rssi):
@@ -37,10 +37,10 @@ def calculate_meters(rssi):
 # Speaker Function for Alerts
 def trigger_speaker_alert(event_type, distance=0):
     if event_type == "RFID_SUCCESS":
-        winsound.Beep(2000, 150) # Short chirp
+        winsound.Beep(2000, 150) 
     elif event_type == "BLE_WARNING":
         for _ in range(3):
-            winsound.Beep(1200, 250) # Warning beeps
+            winsound.Beep(1200, 250) 
     elif event_type == "UNREGISTERED":
         winsound.Beep(400, 600) 
 
@@ -52,7 +52,7 @@ def save_to_database(identifier, rssi, is_rfid=False):
         
         dist_m = 0.0 if is_rfid else calculate_meters(rssi)
 
-        # Extreme Distance Glitch Filter
+        #  Distance Glitch Filter
         if not is_rfid:
             STABLE_DETECTIONS[identifier] = STABLE_DETECTIONS.get(identifier, 0) + 1
             if dist_m > 30.0 and STABLE_DETECTIONS[identifier] < 2:
@@ -78,7 +78,7 @@ def save_to_database(identifier, rssi, is_rfid=False):
             
             print(f"--- SUCCESS: Resident {service_user_id} Identified | Dist: {dist_m}m | RSSI: {rssi} ---")
             
-            # --- PROFESSIONAL AUDIO LOGIC ---
+            # AUDIO LOGIC
             if is_rfid:
                 trigger_speaker_alert("RFID_SUCCESS")
             
@@ -99,7 +99,7 @@ def save_to_database(identifier, rssi, is_rfid=False):
     except Exception as e:
         print(f"--- Database Error: {e} ---")
 
-# REAL HARDWARE LISTENER (For when on Pi)
+# HARDWARE LISTENER (For when on Pi)
 async def real_rfid_listener():
     reader = SimpleMFRC522()
     loop = asyncio.get_event_loop()
@@ -134,7 +134,7 @@ async def main():
 
     scanner = BleakScanner(detection_callback=callback)
     
-    # SWITCH: If library found, use real RFID. Otherwise, use simulation.
+    # switch: If library found, use real RFID. Otherwise, use simulation.
     rfid_logic = real_rfid_listener() if HAS_HARDWARE else simulated_rfid_listener()
 
     try:
