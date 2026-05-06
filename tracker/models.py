@@ -63,7 +63,7 @@ class ServiceUser(models.Model):
 
 
 class WristbandDevice(models.Model):
-    """Bluetooth wristband metadata and current detector state."""
+    """Bluetooth/RFID wristband metadata and current detector state."""
 
     class MovementStatus(models.TextChoices):
         MOVING = "moving", "Moving"
@@ -75,6 +75,7 @@ class WristbandDevice(models.Model):
         INTERMITTENT = "intermittent", "Intermittent"
 
     device_id = models.CharField(primary_key=True, max_length=64)
+
     service_user = models.OneToOneField(
         ServiceUser,
         on_delete=models.SET_NULL,
@@ -82,21 +83,55 @@ class WristbandDevice(models.Model):
         blank=True,
         related_name="wristband_device",
     )
+
     bluetooth_mac_address = models.CharField(max_length=17, unique=True)
     rfid_uid = models.CharField(max_length=64, unique=True, null=True, blank=True)
+
     wristband_serial_number = models.CharField(max_length=100, unique=True)
+
     battery_level = models.PositiveSmallIntegerField(
+        default=100,
         validators=[MinValueValidator(0), MaxValueValidator(100)],
         help_text="Battery level percentage (0-100)",
     )
-    signal_strength = models.IntegerField(help_text="RSSI value in dBm")
-    detector_sensor_id = models.CharField(max_length=64)
-    current_location = models.CharField(max_length=150)
-    previous_location = models.CharField(max_length=150, blank=True)
-    movement_status = models.CharField(max_length=20, choices=MovementStatus.choices, default=MovementStatus.STATIONARY)
+
+    signal_strength = models.IntegerField(
+        default=0,
+        help_text="RSSI value in dBm",
+    )
+
+    detector_sensor_id = models.CharField(
+        max_length=64,
+        default="unknown",
+    )
+
+    current_location = models.CharField(
+        max_length=150,
+        default="Unknown",
+    )
+
+    previous_location = models.CharField(
+        max_length=150,
+        blank=True,
+        default="",
+    )
+
+    movement_status = models.CharField(
+        max_length=20,
+        choices=MovementStatus.choices,
+        default=MovementStatus.STATIONARY,
+    )
+
     last_detected_time = models.DateTimeField(default=timezone.now)
-    connection_status = models.CharField(max_length=20, choices=ConnectionStatus.choices, default=ConnectionStatus.CONNECTED)
-    firmware_version = models.CharField(max_length=50, blank=True)
+
+    connection_status = models.CharField(
+        max_length=20,
+        choices=ConnectionStatus.choices,
+        default=ConnectionStatus.CONNECTED,
+    )
+
+    firmware_version = models.CharField(max_length=50, blank=True, default="")
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -119,7 +154,17 @@ class LocationLog(models.Model):
     wristband_device = models.ForeignKey(WristbandDevice, on_delete=models.CASCADE, related_name="location_logs")
     detector_location = models.CharField(max_length=150)
     timestamp = models.DateTimeField(default=timezone.now)
-    signal_strength = models.IntegerField(help_text="RSSI value in dBm")
+
+    signal_strength = models.IntegerField(
+        default=0,
+        help_text="RSSI value in dBm",
+    )
+    
+    scanner_id = models.CharField(
+    max_length=64,
+    default="unknown"
+)
+
     movement_detected = models.BooleanField(default=False)
 
     class Meta:
@@ -128,6 +173,8 @@ class LocationLog(models.Model):
             models.Index(fields=["timestamp"]),
             models.Index(fields=["detector_location"]),
             models.Index(fields=["service_user", "timestamp"]),
+            models.Index(fields=["wristband_device", "timestamp"]),
+            models.Index(fields=["wristband_device", "signal_strength"]),
         ]
 
     def __str__(self):
