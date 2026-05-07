@@ -74,8 +74,7 @@ def _update_wristband_current_location(wristband, current_log, scanner_id, movem
     update_fields = []
 
     if hasattr(wristband, "previous_location"):
-        old_location = getattr(wristband, "current_location", "")
-        wristband.previous_location = old_location
+        wristband.previous_location = getattr(wristband, "current_location", "")
         update_fields.append("previous_location")
 
     if hasattr(wristband, "current_location"):
@@ -145,29 +144,25 @@ def _last_known_locations_queryset(filters):
         latest_logs = latest_logs.filter(movement_detected=filters["movement_value"])
 
     last_location_subquery = (
-        latest_logs
-        .filter(service_user=OuterRef("pk"))
+        latest_logs.filter(service_user=OuterRef("pk"))
         .order_by("-timestamp")
         .values("detector_location")[:1]
     )
 
     last_time_subquery = (
-        latest_logs
-        .filter(service_user=OuterRef("pk"))
+        latest_logs.filter(service_user=OuterRef("pk"))
         .order_by("-timestamp")
         .values("timestamp")[:1]
     )
 
     last_signal_strength_subquery = (
-        latest_logs
-        .filter(service_user=OuterRef("pk"))
+        latest_logs.filter(service_user=OuterRef("pk"))
         .order_by("-timestamp")
         .values("signal_strength")[:1]
     )
 
     last_scanner_id_subquery = (
-        latest_logs
-        .filter(service_user=OuterRef("pk"))
+        latest_logs.filter(service_user=OuterRef("pk"))
         .order_by("-timestamp")
         .values("scanner_id")[:1]
     )
@@ -186,7 +181,7 @@ def _last_known_locations_queryset(filters):
 
 
 def service_user_list(request):
-    service_users = ServiceUser.objects.all()
+    service_users = ServiceUser.objects.select_related("wristband_device").all()
     return render(request, "tracker/service_users.html", {"service_users": service_users})
 
 
@@ -194,18 +189,15 @@ def task_dashboard(request):
     tasks = Task.objects.all()
     overdue_count = Task.objects.overdue().count()
 
-    context = {
+    return render(request, "tracker/tasks.html", {
         "tasks": tasks,
         "overdue_count": overdue_count,
-    }
-
-    return render(request, "tracker/tasks.html", context)
+    })
 
 
 def add_task(request):
     if request.method == "POST":
         form = TaskForm(request.POST)
-
         if form.is_valid():
             form.save()
             return redirect("tracker:task_dashboard")
@@ -225,7 +217,6 @@ def update_task_status(request, task_id):
 
     if request.method == "POST":
         form = TaskStatusForm(request.POST, instance=task)
-
         if form.is_valid():
             updated_task = form.save(commit=False)
             updated_task.is_completed = updated_task.status == Task.Status.COMPLETED
@@ -238,13 +229,11 @@ def task_alerts(request):
     overdue_tasks = Task.objects.overdue()
     overdue_count = overdue_tasks.count()
 
-    return JsonResponse(
-        {
-            "overdue_count": overdue_count,
-            "message": f"You have {overdue_count} overdue tasks that require attention.",
-            "task_ids": list(overdue_tasks.values_list("id", flat=True)),
-        }
-    )
+    return JsonResponse({
+        "overdue_count": overdue_count,
+        "message": f"You have {overdue_count} overdue tasks that require attention.",
+        "task_ids": list(overdue_tasks.values_list("id", flat=True)),
+    })
 
 
 def location_logs_dashboard(request):
@@ -261,7 +250,7 @@ def location_logs_dashboard(request):
         .distinct()
     )
 
-    context = {
+    return render(request, "tracker/location_logs.html", {
         "logs": logs,
         "last_known_locations": last_known_locations,
         "service_users": service_users,
@@ -269,9 +258,7 @@ def location_logs_dashboard(request):
         "selected_user": filters["user"],
         "selected_location": filters["location"],
         "selected_movement": filters["movement"],
-    }
-
-    return render(request, "tracker/location_logs.html", context)
+    })
 
 
 def live_location_logs(request):
@@ -285,19 +272,17 @@ def live_location_logs(request):
     for log in logs:
         is_recent = (now - log.timestamp).total_seconds() <= 300
 
-        logs_payload.append(
-            {
-                "id": log.id,
-                "service_user": f"{log.service_user.first_name} {log.service_user.last_name}",
-                "location": log.detector_location,
-                "scanner_id": getattr(log, "scanner_id", "unknown"),
-                "signal_strength": log.signal_strength,
-                "movement_detected": "Yes" if log.movement_detected else "No",
-                "device_id": log.wristband_device.device_id,
-                "timestamp": timezone.localtime(log.timestamp).strftime("%Y-%m-%d %H:%M:%S"),
-                "is_recent": is_recent,
-            }
-        )
+        logs_payload.append({
+            "id": log.id,
+            "service_user": f"{log.service_user.first_name} {log.service_user.last_name}",
+            "location": log.detector_location,
+            "scanner_id": getattr(log, "scanner_id", "unknown"),
+            "signal_strength": log.signal_strength,
+            "movement_detected": "Yes" if log.movement_detected else "No",
+            "device_id": log.wristband_device.device_id,
+            "timestamp": timezone.localtime(log.timestamp).strftime("%Y-%m-%d %H:%M:%S"),
+            "is_recent": is_recent,
+        })
 
     last_known_payload = [
         {
@@ -310,17 +295,51 @@ def live_location_logs(request):
         for user in last_known_locations
     ]
 
-    return JsonResponse(
-        {
-            "logs": logs_payload,
-            "last_known_locations": last_known_payload,
-            "active_filters": {
-                "user": filters["user"],
-                "location": filters["location"],
-                "movement": filters["movement"],
-            },
-        }
-    )
+    return JsonResponse({
+        "logs": logs_payload,
+        "last_known_locations": last_known_payload,
+        "active_filters": {
+            "user": filters["user"],
+            "location": filters["location"],
+            "movement": filters["movement"],
+        },
+    })
+
+
+def live_wristband_devices(request):
+    wristbands = WristbandDevice.objects.select_related("service_user").all()
+    now = timezone.now()
+    payload = []
+
+    for wristband in wristbands:
+        last_detected = wristband.last_detected_time
+        is_recent = False
+
+        if last_detected:
+            is_recent = (now - last_detected).total_seconds() <= 300
+
+        service_user_name = "Unassigned"
+
+        if wristband.service_user:
+            service_user_name = (
+                f"{wristband.service_user.first_name} "
+                f"{wristband.service_user.last_name}"
+            )
+
+        payload.append({
+            "device_id": wristband.device_id,
+            "service_user": service_user_name,
+            "current_location": wristband.current_location,
+            "previous_location": wristband.previous_location,
+            "movement_status": wristband.get_movement_status_display(),
+            "signal_strength": wristband.signal_strength,
+            "scanner_id": wristband.detector_sensor_id,
+            "last_detected_time": timezone.localtime(last_detected).strftime("%Y-%m-%d %H:%M:%S") if last_detected else "Never",
+            "connection_status": wristband.get_connection_status_display(),
+            "is_recent": is_recent,
+        })
+
+    return JsonResponse({"wristbands": payload})
 
 
 @csrf_exempt
@@ -344,13 +363,10 @@ def receive_location_data(request):
     missing_fields = [field for field in required_fields if not payload.get(field)]
 
     if missing_fields:
-        return JsonResponse(
-            {
-                "status": "error",
-                "message": f"Missing required fields: {', '.join(missing_fields)}",
-            },
-            status=400,
-        )
+        return JsonResponse({
+            "status": "error",
+            "message": f"Missing required fields: {', '.join(missing_fields)}",
+        }, status=400)
 
     service_user = _parse_service_user(payload["service_user"])
 
@@ -415,13 +431,10 @@ def receive_location_data(request):
         f"[LOCATION_API] Saved {payload['service_user']} at {location} | RSSI {rssi} | Scanner {scanner_id}"
     )
 
-    return JsonResponse(
-        {
-            "status": "success",
-            "message": "Location data saved",
-            "rssi": rssi,
-            "scanner_id": scanner_id,
-            "location": location,
-        },
-        status=201,
-    )
+    return JsonResponse({
+        "status": "success",
+        "message": "Location data saved",
+        "rssi": rssi,
+        "scanner_id": scanner_id,
+        "location": location,
+    }, status=201)

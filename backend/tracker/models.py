@@ -75,6 +75,7 @@ class WristbandDevice(models.Model):
         INTERMITTENT = "intermittent", "Intermittent"
 
     device_id = models.CharField(primary_key=True, max_length=64)
+
     service_user = models.OneToOneField(
         ServiceUser,
         on_delete=models.SET_NULL,
@@ -82,21 +83,53 @@ class WristbandDevice(models.Model):
         blank=True,
         related_name="wristband_device",
     )
+
     bluetooth_mac_address = models.CharField(max_length=17, unique=True)
     rfid_uid = models.CharField(max_length=64, unique=True, null=True, blank=True)
     wristband_serial_number = models.CharField(max_length=100, unique=True)
+
     battery_level = models.PositiveSmallIntegerField(
+        default=100,
         validators=[MinValueValidator(0), MaxValueValidator(100)],
         help_text="Battery level percentage (0-100)",
     )
-    signal_strength = models.IntegerField(help_text="RSSI value in dBm")
-    detector_sensor_id = models.CharField(max_length=64)
-    current_location = models.CharField(max_length=150)
-    previous_location = models.CharField(max_length=150, blank=True)
-    movement_status = models.CharField(max_length=20, choices=MovementStatus.choices, default=MovementStatus.STATIONARY)
+
+    signal_strength = models.IntegerField(
+        default=0,
+        help_text="RSSI value in dBm",
+    )
+
+    detector_sensor_id = models.CharField(
+        max_length=64,
+        default="unknown",
+    )
+
+    current_location = models.CharField(
+        max_length=150,
+        default="Unknown",
+    )
+
+    previous_location = models.CharField(
+        max_length=150,
+        blank=True,
+        default="",
+    )
+
+    movement_status = models.CharField(
+        max_length=20,
+        choices=MovementStatus.choices,
+        default=MovementStatus.STATIONARY,
+    )
+
     last_detected_time = models.DateTimeField(default=timezone.now)
-    connection_status = models.CharField(max_length=20, choices=ConnectionStatus.choices, default=ConnectionStatus.CONNECTED)
-    firmware_version = models.CharField(max_length=50, blank=True)
+
+    connection_status = models.CharField(
+        max_length=20,
+        choices=ConnectionStatus.choices,
+        default=ConnectionStatus.CONNECTED,
+    )
+
+    firmware_version = models.CharField(max_length=50, blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -115,11 +148,26 @@ class WristbandDevice(models.Model):
 class LocationLog(models.Model):
     """Historical movement and detector event log for analytics and auditing."""
 
-    service_user = models.ForeignKey(ServiceUser, on_delete=models.CASCADE, related_name="location_logs")
-    wristband_device = models.ForeignKey(WristbandDevice, on_delete=models.CASCADE, related_name="location_logs")
+    service_user = models.ForeignKey(
+        ServiceUser,
+        on_delete=models.CASCADE,
+        related_name="location_logs",
+    )
+
+    wristband_device = models.ForeignKey(
+        WristbandDevice,
+        on_delete=models.CASCADE,
+        related_name="location_logs",
+    )
+
     detector_location = models.CharField(max_length=150)
     timestamp = models.DateTimeField(default=timezone.now)
-    signal_strength = models.IntegerField(help_text="RSSI value in dBm")
+
+    signal_strength = models.IntegerField(
+        default=0,
+        help_text="RSSI value in dBm",
+    )
+
     movement_detected = models.BooleanField(default=False)
 
     class Meta:
@@ -128,7 +176,54 @@ class LocationLog(models.Model):
             models.Index(fields=["timestamp"]),
             models.Index(fields=["detector_location"]),
             models.Index(fields=["service_user", "timestamp"]),
+            models.Index(fields=["wristband_device", "timestamp"]),
+            models.Index(fields=["wristband_device", "signal_strength"]),
         ]
 
     def __str__(self):
         return f"{self.service_user} @ {self.detector_location} ({self.timestamp:%Y-%m-%d %H:%M:%S})"
+
+
+class Task(models.Model):
+
+    class TaskQuerySet(models.QuerySet):
+        def overdue(self):
+            return self.filter(
+                is_completed=False,
+                due_date__lt=timezone.now()
+            )
+
+    class Status(models.TextChoices):
+        NEW = "new", "New"
+        IN_PROGRESS = "in_progress", "In Progress"
+        COMPLETED = "completed", "Completed"
+
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.NEW,
+    )
+
+    assigned_to = models.CharField(
+        max_length=150,
+        blank=True,
+    )
+
+    due_date = models.DateTimeField(default=timezone.now)
+    is_completed = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    objects = TaskQuerySet.as_manager()
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return self.title
+
+    @property
+    def is_overdue(self):
+        return not self.is_completed and self.due_date < timezone.now()

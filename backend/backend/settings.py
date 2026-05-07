@@ -125,8 +125,8 @@ JAZZMIN_SETTINGS = {
     "welcome_sign": "Welcome to the care home monitoring dashboard",
     "copyright": "Team Project",
     "search_model": ["auth.User", "tracker.ServiceUser", "tracker.WristbandDevice", "tracker.LocationLog"],
-    "topmenu_links": [
-        {"name": "Home", "url": "admin:index", "permissions": ["auth.view_user"]},
+   "topmenu_links": [
+        {"name": "Home", "url": "/", "permissions": ["auth.view_user"]},
         {"model": "tracker.ServiceUser"},
         {"model": "tracker.WristbandDevice"},
         {"model": "tracker.LocationLog"},

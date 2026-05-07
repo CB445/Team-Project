@@ -14,12 +14,18 @@
 
         h1 {
             text-align: center;
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #6b7280;
             margin-bottom: 20px;
         }
 
         table {
             width: 100%;
-            max-width: 900px;
+            max-width: 1200px;
             margin: 0 auto;
             border-collapse: collapse;
             background-color: #ffffff;
@@ -40,10 +46,31 @@
             text-align: center;
             color: #6b7280;
         }
+
+        .moving {
+            color: #92400e;
+            font-weight: bold;
+        }
+
+        .stationary {
+            color: #374151;
+            font-weight: bold;
+        }
+
+        .connected {
+            color: #047857;
+            font-weight: bold;
+        }
+
+        .old {
+            color: #b91c1c;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
     <h1>Service Users</h1>
+    <p class="subtitle">Live wristband location, movement status, and last detected time</p>
 
     <table>
         <thead>
@@ -52,22 +79,98 @@
                 <th>Age</th>
                 <th>Room Number</th>
                 <th>Risk Level</th>
+                <th>Current Location</th>
+                <th>Movement</th>
+                <th>Signal</th>
+                <th>Scanner</th>
+                <th>Last Detected</th>
+                <th>Status</th>
             </tr>
         </thead>
-        <tbody>
+        <tbody id="service-users-body">
             {% for user in service_users %}
-            <tr>
+            <tr data-user-name="{{ user.first_name }} {{ user.last_name }}">
                 <td>{{ user.first_name }} {{ user.last_name }}</td>
                 <td>{{ user.age|default:"-" }}</td>
                 <td>{{ user.room_number }}</td>
                 <td>{{ user.get_risk_level_display }}</td>
+
+                {% if user.wristband_device %}
+                    <td class="current-location">{{ user.wristband_device.current_location }}</td>
+                    <td class="movement-status">{{ user.wristband_device.get_movement_status_display }}</td>
+                    <td class="signal-strength">{{ user.wristband_device.signal_strength }} dBm</td>
+                    <td class="scanner-id">{{ user.wristband_device.detector_sensor_id }}</td>
+                    <td class="last-detected">{{ user.wristband_device.last_detected_time|date:"Y-m-d H:i:s" }}</td>
+                    <td class="connection-status">{{ user.wristband_device.get_connection_status_display }}</td>
+                {% else %}
+                    <td class="current-location">Unassigned</td>
+                    <td class="movement-status">-</td>
+                    <td class="signal-strength">-</td>
+                    <td class="scanner-id">-</td>
+                    <td class="last-detected">-</td>
+                    <td class="connection-status">No wristband</td>
+                {% endif %}
             </tr>
             {% empty %}
             <tr>
-                <td class="empty-row" colspan="4">No service users available.</td>
+                <td class="empty-row" colspan="10">No service users available.</td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
+
+    <script>
+        async function refreshServiceUsers() {
+            try {
+                const response = await fetch("{% url 'tracker:live_wristband_devices' %}");
+
+                if (!response.ok) {
+                    return;
+                }
+
+                const data = await response.json();
+
+                data.wristbands.forEach(wristband => {
+                    const row = document.querySelector(
+                        `tr[data-user-name="${wristband.service_user}"]`
+                    );
+
+                    if (!row) {
+                        return;
+                    }
+
+                    row.querySelector(".current-location").textContent = wristband.current_location;
+                    row.querySelector(".movement-status").textContent = wristband.movement_status;
+                    row.querySelector(".signal-strength").textContent = `${wristband.signal_strength} dBm`;
+                    row.querySelector(".scanner-id").textContent = wristband.scanner_id;
+                    row.querySelector(".last-detected").textContent = wristband.last_detected_time;
+                    row.querySelector(".connection-status").textContent = wristband.connection_status;
+
+                    const movementCell = row.querySelector(".movement-status");
+                    movementCell.className = "movement-status";
+
+                    if (wristband.movement_status.toLowerCase() === "moving") {
+                        movementCell.classList.add("moving");
+                    } else {
+                        movementCell.classList.add("stationary");
+                    }
+
+                    const statusCell = row.querySelector(".connection-status");
+                    statusCell.className = "connection-status";
+
+                    if (wristband.is_recent) {
+                        statusCell.classList.add("connected");
+                    } else {
+                        statusCell.classList.add("old");
+                    }
+                });
+            } catch (error) {
+                console.error("Service users live update failed:", error);
+            }
+        }
+
+        refreshServiceUsers();
+        setInterval(refreshServiceUsers, 1000);
+    </script>
 </body>
 </html>

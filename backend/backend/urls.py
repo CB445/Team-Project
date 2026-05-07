@@ -1,8 +1,7 @@
 from django.contrib import admin
-from django.urls import path
-from tracker.views import receive_location_data
+from django.urls import include, path
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    path("api/location/", receive_location_data, name="receive_location"),
+    path("", include("tracker.urls")),
 ]

@@ -4,7 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Location Logs</title>
+
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
     <style>
         body {
             background: #f4f6f9;
@@ -40,8 +42,25 @@
         }
     </style>
 </head>
+
 <body>
+
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/">Care Tracker</a>
+
+            <div class="navbar-nav">
+                <a class="nav-link" href="/">Home</a>
+                <a class="nav-link" href="/location-logs/">Location Logs</a>
+                <a class="nav-link" href="/users/">Service Users</a>
+                <a class="nav-link" href="/tasks/">Tasks</a>
+                <a class="nav-link" href="/admin/">Admin</a>
+            </div>
+        </div>
+    </nav>
+
     <div class="container py-4 py-lg-5">
+
         <div class="d-flex justify-content-between align-items-center mb-4">
             <div>
                 <h1 class="h3 mb-1">Location Logs</h1>
@@ -61,6 +80,7 @@
                     <h2 class="h6 mb-0">Filters</h2>
                     <button type="button" class="btn btn-outline-secondary btn-sm" id="clear-filters">Clear</button>
                 </div>
+
                 <div class="filters-grid">
                     <div>
                         <label class="filter-label" for="filter-user">Service User</label>
@@ -73,15 +93,19 @@
                             {% endfor %}
                         </select>
                     </div>
+
                     <div>
                         <label class="filter-label" for="filter-location">Location</label>
                         <select id="filter-location" class="form-select form-select-sm">
                             <option value="">All locations</option>
                             {% for location in locations %}
-                            <option value="{{ location }}" {% if selected_location == location %}selected{% endif %}>{{ location }}</option>
+                            <option value="{{ location }}" {% if selected_location == location %}selected{% endif %}>
+                                {{ location }}
+                            </option>
                             {% endfor %}
                         </select>
                     </div>
+
                     <div>
                         <label class="filter-label" for="filter-movement">Movement State</label>
                         <select id="filter-movement" class="form-select form-select-sm">
@@ -97,6 +121,7 @@
         <div class="card panel-card mb-4">
             <div class="card-body">
                 <h2 class="h5 mb-3">Last Known Locations</h2>
+
                 <div class="table-responsive">
                     <table class="table table-sm align-middle mb-0">
                         <thead>
@@ -104,52 +129,52 @@
                                 <th>User</th>
                                 <th>Last Location</th>
                                 <th>Signal</th>
-                                <th>Scanner</th>
                                 <th>Time</th>
                             </tr>
                         </thead>
+
                         <tbody id="last-known-body">
                             {% for item in last_known_locations %}
                             <tr>
                                 <td>{{ item.first_name }} {{ item.last_name }}</td>
                                 <td>{{ item.last_location }}</td>
                                 <td>{{ item.last_signal_strength }} dBm</td>
-                                <td>{{ item.last_scanner_id }}</td>
                                 <td>{{ item.last_seen|date:"h:i A" }}</td>
                             </tr>
                             {% empty %}
                             <tr>
-                                <td colspan="5" class="text-center text-muted">No location history available yet.</td>
+                                <td colspan="4" class="text-center text-muted">No location history available yet.</td>
                             </tr>
                             {% endfor %}
                         </tbody>
                     </table>
                 </div>
+
             </div>
         </div>
 
         <div class="card panel-card">
             <div class="card-body">
                 <h2 class="h5 mb-3">Live Location Activity</h2>
+
                 <div class="table-responsive">
                     <table class="table table-hover align-middle mb-0">
                         <thead>
                             <tr>
                                 <th>Service User</th>
                                 <th>Location</th>
-                                <th>Scanner</th>
                                 <th>Signal</th>
                                 <th>Movement</th>
                                 <th>Wristband</th>
                                 <th>Timestamp</th>
                             </tr>
                         </thead>
+
                         <tbody id="logs-body">
                             {% for log in logs %}
                             <tr>
                                 <td>{{ log.service_user.first_name }} {{ log.service_user.last_name }}</td>
                                 <td>{{ log.detector_location }}</td>
-                                <td>{{ log.scanner_id }}</td>
                                 <td>{{ log.signal_strength }} dBm</td>
                                 <td>
                                     {% if log.movement_detected %}
@@ -163,14 +188,16 @@
                             </tr>
                             {% empty %}
                             <tr>
-                                <td colspan="7" class="text-center text-muted">No location logs available yet.</td>
+                                <td colspan="6" class="text-center text-muted">No location logs available yet.</td>
                             </tr>
                             {% endfor %}
                         </tbody>
                     </table>
                 </div>
+
             </div>
         </div>
+
     </div>
 
     <script>
@@ -182,6 +209,7 @@
 
         function updateLiveClock() {
             const now = new Date();
+
             const formatted = new Intl.DateTimeFormat('en-GB', {
                 day: '2-digit',
                 month: 'long',
@@ -191,6 +219,7 @@
                 second: '2-digit',
                 hour12: false
             }).format(now);
+
             liveClock.textContent = formatted;
         }
 
@@ -216,7 +245,8 @@
             const body = document.getElementById('last-known-body');
 
             if (!data.length) {
-                body.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No location history available yet.</td></tr>';
+                body.innerHTML =
+                    '<tr><td colspan="4" class="text-center text-muted">No location history available yet.</td></tr>';
                 return;
             }
 
@@ -226,7 +256,6 @@
                         <td>${item.service_user}</td>
                         <td>${item.location}</td>
                         <td>${item.signal_strength} dBm</td>
-                        <td>${item.scanner_id}</td>
                         <td>${item.time}</td>
                     </tr>
                 `)
@@ -237,7 +266,8 @@
             const body = document.getElementById('logs-body');
 
             if (!data.length) {
-                body.innerHTML = '<tr><td colspan="7" class="text-center text-muted">No location logs available yet.</td></tr>';
+                body.innerHTML =
+                    '<tr><td colspan="6" class="text-center text-muted">No location logs available yet.</td></tr>';
                 return;
             }
 
@@ -246,11 +276,12 @@
                     <tr class="${log.is_recent ? 'recent-row' : ''}">
                         <td>${log.service_user}</td>
                         <td>${log.location}</td>
-                        <td>${log.scanner_id}</td>
                         <td>${log.signal_strength} dBm</td>
-                        <td>${log.movement_detected === 'Yes'
-                            ? '<span class="meta-pill bg-warning-subtle text-warning-emphasis">Moving</span>'
-                            : '<span class="meta-pill bg-secondary-subtle text-secondary-emphasis">Stable</span>'}</td>
+                        <td>${
+                            log.movement_detected === 'Yes'
+                                ? '<span class="meta-pill bg-warning-subtle text-warning-emphasis">Moving</span>'
+                                : '<span class="meta-pill bg-secondary-subtle text-secondary-emphasis">Stable</span>'
+                        }</td>
                         <td>${log.device_id}</td>
                         <td>${log.timestamp}</td>
                     </tr>
@@ -261,6 +292,7 @@
         async function refreshLocationLogs() {
             try {
                 const params = activeFilterParams();
+
                 const endpoint = params.toString()
                     ? `{% url "tracker:live_location_logs" %}?${params.toString()}`
                     : '{% url "tracker:live_location_logs" %}';
@@ -276,10 +308,34 @@
                 }
 
                 const payload = await response.json();
+
                 renderLastKnownLocations(payload.last_known_locations);
                 renderLogs(payload.logs);
+
             } catch (error) {
                 console.error('Live update failed:', error);
+            }
+        }
+
+        async function checkRFIDRedirect() {
+            try {
+                const response = await fetch("/rfid/latest/");
+
+                if (!response.ok) {
+                    return;
+                }
+
+                const data = await response.json();
+
+                console.log("RFID CHECK:", data);
+
+                if (data.redirect && data.url) {
+                    console.log("Redirecting to:", data.url);
+                    window.location.href = data.url;
+                }
+
+            } catch (err) {
+                console.error("RFID redirect check failed:", err);
             }
         }
 
@@ -299,6 +355,8 @@
 
         setInterval(updateLiveClock, 1000);
         setInterval(refreshLocationLogs, 1000);
+        setInterval(checkRFIDRedirect, 1000);
     </script>
+
 </body>
 </html>
